@@ -1,9 +1,9 @@
 import csv
-
-from pyzbar import pyzbar
-import cv2
 import os
+
+import cv2
 import pandas as pd
+from pyzbar import pyzbar
 
 
 def draw_barcode(decoded, image):
@@ -15,17 +15,20 @@ def draw_barcode(decoded, image):
 
 
 def decode(image, name):
+    global count_b
+    global count_g
+
     decoded_objects = pyzbar.decode(image)
     if len(decoded_objects) == 0:
         print('Штрихкод не распознан на фото: {}'.format(name))
         bad_list.append(name)
+        count_b += 1
     for obj in decoded_objects:
-        print(f"Обнаружен штрих-код:\n{obj}")
         image = draw_barcode(obj, image)
-        print("Тип:", obj.type)
         print("Данные:", obj.data)
         print()
         data.append(str(obj.data)[2:-1])
+        count_g += 1
     return image
 
 
@@ -52,7 +55,6 @@ def to_exsel(good_shk):
         print(ex)
     try:
         df = pd.read_csv('result.csv', encoding='utf-8-sig', delimiter=";")
-        print(df)
         df['Code'] = df['Code'].astype(str)
         writer = pd.ExcelWriter('result.xlsx')
 
@@ -72,18 +74,23 @@ def align_left(x):
 if __name__ == "__main__":
     from glob import glob
 
+    count_g = 0
+    count_b = 0
     data = list()
     bad_list = list()
-    barcodes = glob("*.jpg")
+    barcodes = glob("*.jp*")
     for barcode_file in barcodes:
         try:
             img = cv2.imread(barcode_file)
-            img2 = decode(img, barcode_file)
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+            img2 = decode(gray, barcode_file)
             # cv2.imshow("img", img2)
-            cv2.waitKey(0)
+            # cv2.waitKey(0)
         except Exception as ex:
             print(ex)
-    # print('Список не распознанных фото: {}'.format(','.join(bad_list)))
-    # print(data)
+    print('Список не распознанных фото: {}'.format(','.join(bad_list)))
+    print(data)
+    print('Проверенно: {}\nСчитанные: {}\nНе считанные: {}'.format(count_b+count_g, count_g, count_b))
     replace_bad_shk(bad_list)
     to_exsel(data)
